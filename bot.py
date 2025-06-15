@@ -5,6 +5,7 @@ import os
 import asyncio
 import json
 import threading
+import time
 from fastapi import FastAPI
 import uvicorn
 
@@ -41,23 +42,28 @@ def load_data():
             data = json.load(f)
             reply_msg = data.get("reply_msg", "SEARCH YOUR MOVIE HERE @Yourmovielinkk")
             delete_delay = data.get("delete_delay", 15)
+            reply_gap = data.get("reply_gap", 30)
     except:
         reply_msg = "SEARCH YOUR MOVIE HERE @Yourmovielinkk"
         delete_delay = 15
+        reply_gap = 30
 
-    return groups, reply_msg, delete_delay
+    return groups, reply_msg, delete_delay, reply_gap
 
 def save_groups(groups):
     with open(GROUPS_FILE, "w") as f:
         json.dump(list(groups), f)
 
-def save_settings(reply_msg, delete_delay):
+def save_settings(reply_msg, delete_delay, reply_gap):
     with open(SETTINGS_FILE, "w") as f:
-        json.dump({"reply_msg": reply_msg, "delete_delay": delete_delay}, f)
+        json.dump({"reply_msg": reply_msg, "delete_delay": delete_delay, "reply_gap": reply_gap}, f)
 
 # 🔹 Load
-TARGET_GROUPS, AUTO_REPLY_MSG, DELETE_DELAY = load_data()
+TARGET_GROUPS, AUTO_REPLY_MSG, DELETE_DELAY, REPLY_GAP = load_data()
 client = TelegramClient(StringSession(SESSION), API_ID, API_HASH)
+
+# Store last reply times per group
+last_reply_time = {}
 
 # 🔹 Auto add group when userbot joins
 @client.on(events.ChatAction)
@@ -72,7 +78,7 @@ async def auto_add_group_on_join(event):
 # 🔹 Auto-reply handler (only human users)
 @client.on(events.NewMessage)
 async def handler(event):
-    global DELETE_DELAY
+    global DELETE_DELAY, REPLY_GAP
     try:
         sender = await event.get_sender()
         if (
@@ -80,6 +86,13 @@ async def handler(event):
             event.sender_id != (await client.get_me()).id and
             not getattr(sender, 'bot', False)
         ):
+            now = time.time()
+            last = last_reply_time.get(event.chat_id, 0)
+
+            if now - last < REPLY_GAP:
+                return  # too soon
+
+            last_reply_time[event.chat_id] = now
             sent_msg = await event.reply(AUTO_REPLY_MSG)
             if DELETE_DELAY > 0:
                 await asyncio.sleep(DELETE_DELAY)
@@ -117,32 +130,44 @@ async def remove_group(event):
 
 @client.on(events.NewMessage(pattern="/setmsg"))
 async def set_msg(event):
-    global AUTO_REPLY_MSG, DELETE_DELAY
+    global AUTO_REPLY_MSG, DELETE_DELAY, REPLY_GAP
     if event.sender_id in ADMINS:
         try:
             AUTO_REPLY_MSG = event.message.text.split(" ", 1)[1]
-            save_settings(AUTO_REPLY_MSG, DELETE_DELAY)
+            save_settings(AUTO_REPLY_MSG, DELETE_DELAY, REPLY_GAP)
             await event.reply("✅ Reply message updated!")
         except:
             await event.reply("❌ Error: Provide a message.")
 
 @client.on(events.NewMessage(pattern="/delmsg"))
 async def del_msg(event):
-    global AUTO_REPLY_MSG, DELETE_DELAY
+    global AUTO_REPLY_MSG, DELETE_DELAY, REPLY_GAP
     if event.sender_id in ADMINS:
         AUTO_REPLY_MSG = ""
-        save_settings(AUTO_REPLY_MSG, DELETE_DELAY)
+        save_settings(AUTO_REPLY_MSG, DELETE_DELAY, REPLY_GAP)
         await event.reply("🗑️ Auto reply message cleared.")
 
 @client.on(events.NewMessage(pattern="/setdel"))
 async def set_del(event):
-    global DELETE_DELAY, AUTO_REPLY_MSG
+    global DELETE_DELAY, AUTO_REPLY_MSG, REPLY_GAP
     if event.sender_id in ADMINS:
         try:
             seconds = int(event.message.text.split(" ", 1)[1])
             DELETE_DELAY = max(0, seconds)
-            save_settings(AUTO_REPLY_MSG, DELETE_DELAY)
+            save_settings(AUTO_REPLY_MSG, DELETE_DELAY, REPLY_GAP)
             await event.reply(f"⏱️ Auto-delete time set to {DELETE_DELAY} seconds.")
+        except:
+            await event.reply("❌ Error: Provide a number of seconds.")
+
+@client.on(events.NewMessage(pattern="/setgap"))
+async def set_gap(event):
+    global REPLY_GAP, DELETE_DELAY, AUTO_REPLY_MSG
+    if event.sender_id in ADMINS:
+        try:
+            seconds = int(event.message.text.split(" ", 1)[1])
+            REPLY_GAP = max(0, seconds)
+            save_settings(AUTO_REPLY_MSG, DELETE_DELAY, REPLY_GAP)
+            await event.reply(f"⏳ Time gap between replies set to {REPLY_GAP} seconds.")
         except:
             await event.reply("❌ Error: Provide a number of seconds.")
 
