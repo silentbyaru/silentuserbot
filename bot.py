@@ -59,12 +59,17 @@ def save_settings(reply_msg, delete_delay):
 TARGET_GROUPS, AUTO_REPLY_MSG, DELETE_DELAY = load_data()
 client = TelegramClient(StringSession(SESSION), API_ID, API_HASH)
 
-# 🔹 Auto-reply handler
+# 🔹 Auto-reply handler (only for human users, not bots)
 @client.on(events.NewMessage)
 async def handler(event):
     global DELETE_DELAY
     try:
-        if event.chat_id in TARGET_GROUPS and event.sender_id != (await client.get_me()).id:
+        sender = await event.get_sender()
+        if (
+            event.chat_id in TARGET_GROUPS and
+            event.sender_id != (await client.get_me()).id and
+            not getattr(sender, 'bot', False)  # Ignore bot messages
+        ):
             sent_msg = await event.reply(AUTO_REPLY_MSG)
             if DELETE_DELAY > 0:
                 await asyncio.sleep(DELETE_DELAY)
@@ -77,7 +82,7 @@ async def handler(event):
     except Exception as e:
         print(f"[!] Unhandled error: {e}")
 
-# 🔹 Commands
+# 🔹 Admin Commands
 @client.on(events.NewMessage(pattern="/add"))
 async def add_group(event):
     if event.sender_id in ADMINS:
@@ -131,23 +136,19 @@ async def set_del(event):
         except:
             await event.reply("❌ Error: Provide a number of seconds.")
 
-# 🔹 Forwarded Message Handler (group ID finder)
-@client.on(events.NewMessage(forwards=True))
-async def group_id_finder(event):
-    if event.is_private:
-        if event.fwd_from and event.fwd_from.from_id and hasattr(event.fwd_from, 'channel_id'):
-            try:
-                forwarded_chat = await client.get_entity(event.fwd_from.channel_id)
-                sender_id = event.fwd_from.from_id.user_id if hasattr(event.fwd_from.from_id, 'user_id') else "Unknown"
-                group_name = forwarded_chat.title if hasattr(forwarded_chat, 'title') else "Unknown"
-                await event.reply(
-                    f"📢 Group Info from forwarded message:\n\n"
-                    f"🔹 Group Name: {group_name}\n"
-                    f"🔹 Group ID: `{forwarded_chat.id}`\n"
-                    f"👤 Sender ID: `{sender_id}`"
-                )
-            except Exception as e:
-                await event.reply(f"⚠️ Failed to extract group info.\nError: {e}")
+# 🔹 /id command to find group ID, sender ID
+@client.on(events.NewMessage(pattern="/id"))
+async def id_command(event):
+    if event.is_group or event.is_channel:
+        chat = await event.get_chat()
+        await event.reply(
+            f"🆔 Group Info:\n"
+            f"👥 Group Name: {chat.title}\n"
+            f"📢 Chat ID: `{event.chat_id}`\n"
+            f"👤 Your User ID: `{event.sender_id}`"
+        )
+    else:
+        await event.reply(f"👤 This is a private chat.\nYour ID: `{event.sender_id}`")
 
 # 🔹 Start bot
 async def main():
