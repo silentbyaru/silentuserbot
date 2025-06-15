@@ -8,9 +8,8 @@ import threading
 from fastapi import FastAPI
 import uvicorn
 
-# 🔹 Start FastAPI health server for Koyeb
+# 🔹 Health check for Koyeb
 app = FastAPI()
-
 @app.get("/")
 async def root():
     return {"status": "Bot is alive!"}
@@ -20,7 +19,7 @@ def run_web():
 
 threading.Thread(target=run_web, daemon=True).start()
 
-# 🔹 Telegram Credentials
+# 🔹 Telegram credentials
 API_ID = 29140356
 API_HASH = "f5976eb15ac17891076075f76a9c312b"
 SESSION = "1BVtsOJwBuyYUXilH3FxsxE_ZSlQ-CeCot2riJlpLIkPcu-9Goh6BDmbe3yGyTuVwPvId2cykZrb-SpbBGL2BSkRl1uQJtuGsZXpZememvBt6NlRoIt-_LED1nRTH72ZXHHKQmCAiIRmKjrJu_nxSsx_DGCSG3BGx8IwHOyBCShtxgzBsro82wBqVhnQWi3ZJbEAN_d6F9kaCUzKQi_EOtlUt4ODdpthbmBzi1GRy6E_ZyCVR5FbwDfqTsFESfmh0xbhGwIN8Muum-1fFd-JHWDC_pnrmIL_8iFoU0TNwkxClPRVq9Jj1_rZnbd-Zjm6erPfTncohNypRHvT396T5eP8mDI_WgWc="
@@ -29,7 +28,7 @@ ADMINS = [6046055058]
 GROUPS_FILE = "groups.json"
 SETTINGS_FILE = "settings.json"
 
-# 🔹 Load Saved Data
+# 🔹 Load saved data
 def load_data():
     try:
         with open(GROUPS_FILE, "r") as f:
@@ -48,7 +47,6 @@ def load_data():
 
     return groups, reply_msg, delete_delay
 
-# 🔹 Save functions
 def save_groups(groups):
     with open(GROUPS_FILE, "w") as f:
         json.dump(list(groups), f)
@@ -57,11 +55,11 @@ def save_settings(reply_msg, delete_delay):
     with open(SETTINGS_FILE, "w") as f:
         json.dump({"reply_msg": reply_msg, "delete_delay": delete_delay}, f)
 
-# 🔹 Load group and message settings
+# 🔹 Load
 TARGET_GROUPS, AUTO_REPLY_MSG, DELETE_DELAY = load_data()
 client = TelegramClient(StringSession(SESSION), API_ID, API_HASH)
 
-# 🔹 Auto-reply to group messages
+# 🔹 Auto-reply handler
 @client.on(events.NewMessage)
 async def handler(event):
     global DELETE_DELAY
@@ -79,7 +77,7 @@ async def handler(event):
     except Exception as e:
         print(f"[!] Unhandled error: {e}")
 
-# 🔹 /add command to add group ID
+# 🔹 Commands
 @client.on(events.NewMessage(pattern="/add"))
 async def add_group(event):
     if event.sender_id in ADMINS:
@@ -91,7 +89,6 @@ async def add_group(event):
         except:
             await event.reply("❌ Error: Provide a valid group ID.")
 
-# 🔹 /remove command to remove group ID
 @client.on(events.NewMessage(pattern="/remove"))
 async def remove_group(event):
     if event.sender_id in ADMINS:
@@ -103,7 +100,6 @@ async def remove_group(event):
         except:
             await event.reply("❌ Error: Provide a valid group ID.")
 
-# 🔹 /setmsg command to update auto-reply message
 @client.on(events.NewMessage(pattern="/setmsg"))
 async def set_msg(event):
     global AUTO_REPLY_MSG, DELETE_DELAY
@@ -115,7 +111,6 @@ async def set_msg(event):
         except:
             await event.reply("❌ Error: Provide a message.")
 
-# 🔹 /delmsg command to clear auto-reply message
 @client.on(events.NewMessage(pattern="/delmsg"))
 async def del_msg(event):
     global AUTO_REPLY_MSG, DELETE_DELAY
@@ -124,7 +119,6 @@ async def del_msg(event):
         save_settings(AUTO_REPLY_MSG, DELETE_DELAY)
         await event.reply("🗑️ Auto reply message cleared.")
 
-# 🔹 /setdel command to change delete delay
 @client.on(events.NewMessage(pattern="/setdel"))
 async def set_del(event):
     global DELETE_DELAY, AUTO_REPLY_MSG
@@ -136,6 +130,24 @@ async def set_del(event):
             await event.reply(f"⏱️ Auto-delete time set to {DELETE_DELAY} seconds.")
         except:
             await event.reply("❌ Error: Provide a number of seconds.")
+
+# 🔹 Forwarded Message Handler (group ID finder)
+@client.on(events.NewMessage(forwards=True))
+async def group_id_finder(event):
+    if event.is_private:
+        if event.fwd_from and event.fwd_from.from_id and hasattr(event.fwd_from, 'channel_id'):
+            try:
+                forwarded_chat = await client.get_entity(event.fwd_from.channel_id)
+                sender_id = event.fwd_from.from_id.user_id if hasattr(event.fwd_from.from_id, 'user_id') else "Unknown"
+                group_name = forwarded_chat.title if hasattr(forwarded_chat, 'title') else "Unknown"
+                await event.reply(
+                    f"📢 Group Info from forwarded message:\n\n"
+                    f"🔹 Group Name: {group_name}\n"
+                    f"🔹 Group ID: `{forwarded_chat.id}`\n"
+                    f"👤 Sender ID: `{sender_id}`"
+                )
+            except Exception as e:
+                await event.reply(f"⚠️ Failed to extract group info.\nError: {e}")
 
 # 🔹 Start bot
 async def main():
