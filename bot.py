@@ -59,7 +59,17 @@ def save_settings(reply_msg, delete_delay):
 TARGET_GROUPS, AUTO_REPLY_MSG, DELETE_DELAY = load_data()
 client = TelegramClient(StringSession(SESSION), API_ID, API_HASH)
 
-# 🔹 Auto-reply handler (only for human users, not bots)
+# 🔹 Auto add group when userbot joins
+@client.on(events.ChatAction)
+async def auto_add_group_on_join(event):
+    if event.user_joined or event.user_added:
+        me = await client.get_me()
+        if event.user_id == me.id and event.is_group:
+            TARGET_GROUPS.add(event.chat_id)
+            save_groups(TARGET_GROUPS)
+            print(f"[+] Auto-added group: {event.chat_id}")
+
+# 🔹 Auto-reply handler (only human users)
 @client.on(events.NewMessage)
 async def handler(event):
     global DELETE_DELAY
@@ -68,7 +78,7 @@ async def handler(event):
         if (
             event.chat_id in TARGET_GROUPS and
             event.sender_id != (await client.get_me()).id and
-            not getattr(sender, 'bot', False)  # Ignore bot messages
+            not getattr(sender, 'bot', False)
         ):
             sent_msg = await event.reply(AUTO_REPLY_MSG)
             if DELETE_DELAY > 0:
@@ -136,7 +146,7 @@ async def set_del(event):
         except:
             await event.reply("❌ Error: Provide a number of seconds.")
 
-# 🔹 /id command to find group ID, sender ID
+# 🔹 Group & User ID Finder
 @client.on(events.NewMessage(pattern="/id"))
 async def id_command(event):
     if event.is_group or event.is_channel:
