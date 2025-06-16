@@ -21,9 +21,9 @@ def run_web():
 threading.Thread(target=run_web, daemon=True).start()
 
 # 🔹 Telegram credentials
-API_ID = 29140356
-API_HASH = "f5976eb15ac17891076075f76a9c312b"
-SESSION = "1BVtsOJwBuyYUXilH3FxsxE_ZSlQ-CeCot2riJlpLIkPcu-9Goh6BDmbe3yGyTuVwPvId2cykZrb-SpbBGL2BSkRl1uQJtuGsZXpZememvBt6NlRoIt-_LED1nRTH72ZXHHKQmCAiIRmKjrJu_nxSsx_DGCSG3BGx8IwHOyBCShtxgzBsro82wBqVhnQWi3ZJbEAN_d6F9kaCUzKQi_EOtlUt4ODdpthbmBzi1GRy6E_ZyCVR5FbwDfqTsFESfmh0xbhGwIN8Muum-1fFd-JHWDC_pnrmIL_8iFoU0TNwkxClPRVq9Jj1_rZnbd-Zjm6erPfTncohNypRHvT396T5eP8mDI_WgWc="
+API_ID = 22938364
+API_HASH = "81cc7882c88b7cb7785cb1a8d59e93a8"
+SESSION = "1BVtsOJwBu5k4CQuf64FEA73FBWCkTimy2HECd4lMcbWEiXIwc8gGrCwcZs2gCCzRZ6L995oZpkvQ4qicCFpxaA5giPsq0cQ3BGRx0JNcZABTT2iFIz57_FlX1gq1gOQ9hEnf6-WcuexDYQ-0oWuf5xGN1yZ3Eqh2QcAThPGKeXLfQQpjVcq_hYpIjPETCUvy1DboNd8iKS4l4skUbfPGH3tJ4274-fkj-nc0AGRfvxJuJFyD8sGSE9shwlcrqzKCflmgH5Imdb6u2XrYjiVV0aOaomq_maiMUtaqKJXrjSlhV909cMjfqr2s9VfjA4ZQAnJJUFlSDOqnd-Hc834wdY4KLad4VYo="
 
 ADMINS = [6046055058]
 GROUPS_FILE = "groups.json"
