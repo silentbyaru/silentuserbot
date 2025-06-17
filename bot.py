@@ -59,7 +59,6 @@ def save_settings(reply_msg, delete_delay, reply_gap):
 
 TARGET_GROUPS, AUTO_REPLY_MSG, DELETE_DELAY, REPLY_GAP = load_data()
 client = TelegramClient(StringSession(SESSION), API_ID, API_HASH)
-
 last_reply_time = {}
 
 @client.on(events.ChatAction)
@@ -180,7 +179,7 @@ async def id_command(event):
 
 @client.on(events.NewMessage(pattern="/gensession"))
 async def generate_session(event):
-    if event.sender_id in ADMINS:
+    if event.is_private and event.sender_id in ADMINS:
         await event.reply("📲 Send me your phone number in international format (e.g. +919876543210)")
         
         try:
@@ -200,7 +199,6 @@ async def generate_session(event):
                 await temp_client.sign_in(phone, code)
             except SessionPasswordNeededError:
                 await event.respond("🔑 This account has 2-Step Verification enabled.\nPlease enter your password:")
-
                 pwd_event = await client.wait_for(events.NewMessage(from_users=event.sender_id), timeout=60)
                 password = pwd_event.message.message.strip()
                 await temp_client.sign_in(password=password)
