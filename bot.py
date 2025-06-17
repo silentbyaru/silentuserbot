@@ -24,7 +24,6 @@ threading.Thread(target=run_web, daemon=True).start()
 API_ID = 22938364
 API_HASH = "81cc7882c88b7cb7785cb1a8d59e93a8"
 SESSION = "1BVtsOJwBu5k4CQuf64FEA73FBWCkTimy2HECd4lMcbWEiXIwc8gGrCwcZs2gCCzRZ6L995oZpkvQ4qicCFpxaA5giPsq0cQ3BGRx0JNcZABTT2iFIz57_FlX1gq1gOQ9hEnf6-WcuexDYQ-0oWuf5xGN1yZ3Eqh2QcAThPGKeXLfQQpjVcq_hYpIjPETCUvy1DboNd8iKS4l4skUbfPGH3tJ4274-fkj-nc0AGRfvxJuJFyD8sGSE9shwlcrqzKCflmgH5Imdb6u2XrYjiVV0aOaomq_maiMUtaqKJXrjSlhV909cMjfqr2s9VfjA4ZQAnJJUFlSDOqnd-Hc834wdY4KLad4VYo="
-
 ADMINS = [6046055058]
 GROUPS_FILE = "groups.json"
 SETTINGS_FILE = "settings.json"
@@ -180,36 +179,31 @@ async def id_command(event):
 @client.on(events.NewMessage(pattern="/gensession"))
 async def generate_session(event):
     if event.is_private and event.sender_id in ADMINS:
-        await event.reply("📲 Send me your phone number in international format (e.g. +919876543210)")
-        
-        try:
-            phone_event = await client.wait_for(events.NewMessage(from_users=event.sender_id), timeout=60)
-            phone = phone_event.message.message.strip()
-
-            temp_client = TelegramClient(StringSession(), API_ID, API_HASH)
-            await temp_client.connect()
-
-            await temp_client.send_code_request(phone)
-            await event.respond("🔐 Enter the OTP (numbers only):")
-
-            code_event = await client.wait_for(events.NewMessage(from_users=event.sender_id), timeout=60)
-            code = code_event.message.message.strip().replace(" ", "")
-
+        async with client.conversation(event.sender_id, timeout=120) as conv:
+            await conv.send_message("📲 Send me your phone number in international format (e.g. +919876543210)")
             try:
-                await temp_client.sign_in(phone, code)
-            except SessionPasswordNeededError:
-                await event.respond("🔑 This account has 2-Step Verification enabled.\nPlease enter your password:")
-                pwd_event = await client.wait_for(events.NewMessage(from_users=event.sender_id), timeout=60)
-                password = pwd_event.message.message.strip()
-                await temp_client.sign_in(password=password)
+                phone = (await conv.get_response()).text.strip()
+                temp_client = TelegramClient(StringSession(), API_ID, API_HASH)
+                await temp_client.connect()
 
-            string = temp_client.session.save()
-            await client.send_message(event.sender_id, f"✅ Here is your session string:\n\n`{string}`\n\n⚠️ **Keep it safe. Do not share it with anyone!**")
+                await temp_client.send_code_request(phone)
+                await conv.send_message("🔐 Enter the OTP (numbers only):")
+                code = (await conv.get_response()).text.strip().replace(" ", "")
 
-        except Exception as e:
-            await event.respond(f"❌ Failed to generate session: {e}")
-        finally:
-            await temp_client.disconnect()
+                try:
+                    await temp_client.sign_in(phone, code)
+                except SessionPasswordNeededError:
+                    await conv.send_message("🔑 This account has 2-Step Verification enabled.\nPlease enter your password:")
+                    password = (await conv.get_response()).text.strip()
+                    await temp_client.sign_in(password=password)
+
+                string = temp_client.session.save()
+                await client.send_message(event.sender_id, f"✅ Here is your session string:\n\n`{string}`\n\n⚠️ **Keep it safe. Do not share it with anyone!**")
+
+            except Exception as e:
+                await conv.send_message(f"❌ Failed to generate session: {e}")
+            finally:
+                await temp_client.disconnect()
 
 # 🔹 Start bot
 async def main():
