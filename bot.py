@@ -1,6 +1,6 @@
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
-from telethon.errors import ChatWriteForbiddenError
+from telethon.errors import ChatWriteForbiddenError, SessionPasswordNeededError
 import os
 import asyncio
 import json
@@ -29,7 +29,6 @@ ADMINS = [6046055058]
 GROUPS_FILE = "groups.json"
 SETTINGS_FILE = "settings.json"
 
-# 🔹 Load saved data
 def load_data():
     try:
         with open(GROUPS_FILE, "r") as f:
@@ -58,14 +57,11 @@ def save_settings(reply_msg, delete_delay, reply_gap):
     with open(SETTINGS_FILE, "w") as f:
         json.dump({"reply_msg": reply_msg, "delete_delay": delete_delay, "reply_gap": reply_gap}, f)
 
-# 🔹 Load
 TARGET_GROUPS, AUTO_REPLY_MSG, DELETE_DELAY, REPLY_GAP = load_data()
 client = TelegramClient(StringSession(SESSION), API_ID, API_HASH)
 
-# Store last reply times per group
 last_reply_time = {}
 
-# 🔹 Auto add group when userbot joins
 @client.on(events.ChatAction)
 async def auto_add_group_on_join(event):
     if event.user_joined or event.user_added:
@@ -75,7 +71,6 @@ async def auto_add_group_on_join(event):
             save_groups(TARGET_GROUPS)
             print(f"[+] Auto-added group: {event.chat_id}")
 
-# 🔹 Auto-reply handler (only human users)
 @client.on(events.NewMessage)
 async def handler(event):
     global DELETE_DELAY, REPLY_GAP
@@ -90,7 +85,7 @@ async def handler(event):
             last = last_reply_time.get(event.chat_id, 0)
 
             if now - last < REPLY_GAP:
-                return  # too soon
+                return
 
             last_reply_time[event.chat_id] = now
             sent_msg = await event.reply(AUTO_REPLY_MSG)
@@ -105,7 +100,6 @@ async def handler(event):
     except Exception as e:
         print(f"[!] Unhandled error: {e}")
 
-# 🔹 Admin Commands
 @client.on(events.NewMessage(pattern="/add"))
 async def add_group(event):
     if event.sender_id in ADMINS:
@@ -171,7 +165,6 @@ async def set_gap(event):
         except:
             await event.reply("❌ Error: Provide a number of seconds.")
 
-# 🔹 Group & User ID Finder
 @client.on(events.NewMessage(pattern="/id"))
 async def id_command(event):
     if event.is_group or event.is_channel:
@@ -184,6 +177,41 @@ async def id_command(event):
         )
     else:
         await event.reply(f"👤 This is a private chat.\nYour ID: `{event.sender_id}`")
+
+@client.on(events.NewMessage(pattern="/gensession"))
+async def generate_session(event):
+    if event.sender_id in ADMINS:
+        await event.reply("📲 Send me your phone number in international format (e.g. +919876543210)")
+        
+        try:
+            phone_event = await client.wait_for(events.NewMessage(from_users=event.sender_id), timeout=60)
+            phone = phone_event.message.message.strip()
+
+            temp_client = TelegramClient(StringSession(), API_ID, API_HASH)
+            await temp_client.connect()
+
+            await temp_client.send_code_request(phone)
+            await event.respond("🔐 Enter the OTP (numbers only):")
+
+            code_event = await client.wait_for(events.NewMessage(from_users=event.sender_id), timeout=60)
+            code = code_event.message.message.strip().replace(" ", "")
+
+            try:
+                await temp_client.sign_in(phone, code)
+            except SessionPasswordNeededError:
+                await event.respond("🔑 This account has 2-Step Verification enabled.\nPlease enter your password:")
+
+                pwd_event = await client.wait_for(events.NewMessage(from_users=event.sender_id), timeout=60)
+                password = pwd_event.message.message.strip()
+                await temp_client.sign_in(password=password)
+
+            string = temp_client.session.save()
+            await client.send_message(event.sender_id, f"✅ Here is your session string:\n\n`{string}`\n\n⚠️ **Keep it safe. Do not share it with anyone!**")
+
+        except Exception as e:
+            await event.respond(f"❌ Failed to generate session: {e}")
+        finally:
+            await temp_client.disconnect()
 
 # 🔹 Start bot
 async def main():
