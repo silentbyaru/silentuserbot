@@ -1,6 +1,6 @@
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
-from telethon.errors import ChatWriteForbiddenError, SessionPasswordNeededError
+from telethon.errors import ChatWriteForbiddenError
 import os
 import asyncio
 import json
@@ -24,10 +24,12 @@ threading.Thread(target=run_web, daemon=True).start()
 API_ID = 22938364
 API_HASH = "81cc7882c88b7cb7785cb1a8d59e93a8"
 SESSION = "1BVtsOJwBu5k4CQuf64FEA73FBWCkTimy2HECd4lMcbWEiXIwc8gGrCwcZs2gCCzRZ6L995oZpkvQ4qicCFpxaA5giPsq0cQ3BGRx0JNcZABTT2iFIz57_FlX1gq1gOQ9hEnf6-WcuexDYQ-0oWuf5xGN1yZ3Eqh2QcAThPGKeXLfQQpjVcq_hYpIjPETCUvy1DboNd8iKS4l4skUbfPGH3tJ4274-fkj-nc0AGRfvxJuJFyD8sGSE9shwlcrqzKCflmgH5Imdb6u2XrYjiVV0aOaomq_maiMUtaqKJXrjSlhV909cMjfqr2s9VfjA4ZQAnJJUFlSDOqnd-Hc834wdY4KLad4VYo="
+
 ADMINS = [6046055058]
 GROUPS_FILE = "groups.json"
 SETTINGS_FILE = "settings.json"
 
+# 🔹 Load saved data
 def load_data():
     try:
         with open(GROUPS_FILE, "r") as f:
@@ -56,10 +58,14 @@ def save_settings(reply_msg, delete_delay, reply_gap):
     with open(SETTINGS_FILE, "w") as f:
         json.dump({"reply_msg": reply_msg, "delete_delay": delete_delay, "reply_gap": reply_gap}, f)
 
+# 🔹 Load
 TARGET_GROUPS, AUTO_REPLY_MSG, DELETE_DELAY, REPLY_GAP = load_data()
 client = TelegramClient(StringSession(SESSION), API_ID, API_HASH)
+
+# Store last reply times per group
 last_reply_time = {}
 
+# 🔹 Auto add group when userbot joins
 @client.on(events.ChatAction)
 async def auto_add_group_on_join(event):
     if event.user_joined or event.user_added:
@@ -69,6 +75,7 @@ async def auto_add_group_on_join(event):
             save_groups(TARGET_GROUPS)
             print(f"[+] Auto-added group: {event.chat_id}")
 
+# 🔹 Auto-reply handler (only human users)
 @client.on(events.NewMessage)
 async def handler(event):
     global DELETE_DELAY, REPLY_GAP
@@ -83,7 +90,7 @@ async def handler(event):
             last = last_reply_time.get(event.chat_id, 0)
 
             if now - last < REPLY_GAP:
-                return
+                return  # too soon
 
             last_reply_time[event.chat_id] = now
             sent_msg = await event.reply(AUTO_REPLY_MSG)
@@ -98,6 +105,7 @@ async def handler(event):
     except Exception as e:
         print(f"[!] Unhandled error: {e}")
 
+# 🔹 Admin Commands
 @client.on(events.NewMessage(pattern="/add"))
 async def add_group(event):
     if event.sender_id in ADMINS:
@@ -163,6 +171,7 @@ async def set_gap(event):
         except:
             await event.reply("❌ Error: Provide a number of seconds.")
 
+# 🔹 Group & User ID Finder
 @client.on(events.NewMessage(pattern="/id"))
 async def id_command(event):
     if event.is_group or event.is_channel:
@@ -175,35 +184,6 @@ async def id_command(event):
         )
     else:
         await event.reply(f"👤 This is a private chat.\nYour ID: `{event.sender_id}`")
-
-@client.on(events.NewMessage(pattern="/gensession"))
-async def generate_session(event):
-    if event.is_private and event.sender_id in ADMINS:
-        async with client.conversation(event.sender_id, timeout=120) as conv:
-            await conv.send_message("📲 Send me your phone number in international format (e.g. +919876543210)")
-            try:
-                phone = (await conv.get_response()).text.strip()
-                temp_client = TelegramClient(StringSession(), API_ID, API_HASH)
-                await temp_client.connect()
-
-                await temp_client.send_code_request(phone)
-                await conv.send_message("🔐 Enter the OTP (numbers only):")
-                code = (await conv.get_response()).text.strip().replace(" ", "")
-
-                try:
-                    await temp_client.sign_in(phone, code)
-                except SessionPasswordNeededError:
-                    await conv.send_message("🔑 This account has 2-Step Verification enabled.\nPlease enter your password:")
-                    password = (await conv.get_response()).text.strip()
-                    await temp_client.sign_in(password=password)
-
-                string = temp_client.session.save()
-                await client.send_message(event.sender_id, f"✅ Here is your session string:\n\n`{string}`\n\n⚠️ **Keep it safe. Do not share it with anyone!**")
-
-            except Exception as e:
-                await conv.send_message(f"❌ Failed to generate session: {e}")
-            finally:
-                await temp_client.disconnect()
 
 # 🔹 Start bot
 async def main():
