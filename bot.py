@@ -17,8 +17,8 @@ async def root():
 threading.Thread(target=lambda: uvicorn.run(app, host="0.0.0.0", port=8080), daemon=True).start()
 
 # Bot 1
-API_ID1 = 
-API_HASH1 = ""
+API_ID1 = 22159350
+API_HASH1 = "dd12372131d8788b4504577426f40a81"
 SESSION1 = ""
 ADMIN1 = 2056329003
 
