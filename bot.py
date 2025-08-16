@@ -17,16 +17,16 @@ async def root():
 threading.Thread(target=lambda: uvicorn.run(app, host="0.0.0.0", port=8080), daemon=True).start()
 
 # Bot 1
-API_ID1 = 29192127
-API_HASH1 = "daa07f15fbc89fb7f4fb4c363032bed4"
-SESSION1 = "1BVtsOJwBu8Pxf18kPbfozRtijsyaSoZZj15wk97nb8ZEACgpQClm_ztwJ_s4vr-DmvOkQ5bx1UAEAa-1e4YQINZN8_rQfCWryivEenG8wbERCwo5UDh3snKAvQuymq2qy09Zy0gzPM61XJthDXDJmm-prB4Ut_pQPICDf2eNPfcPbdKfhFTA8MkH53d8hvtuim_K0ZSP35KNDXWCYPN4idyrdyk5548WfuSLmd96zOxtqLx7OE7ZwbAZor_3I_H8wk2vLTHAqnp9XDKboqz8i3sxq74s_XOX2w8IO2ceRAMVsSZlzZu1iagLmW3CMLwG-zOUjazkkKBhOhhrOHky9uw2Xc2WcKU="
+API_ID1 = 
+API_HASH1 = ""
+SESSION1 = ""
 ADMIN1 = 2056329003
 
 # Bot 2
-API_ID2 = 
-API_HASH2 = ""
+API_ID2 = 29208082
+API_HASH2 = "6203a135ca2e1834f167a67d5be30280"
 SESSION2 = ""
-ADMIN2 = 
+ADMIN2 = 6382468285
 
 # Files
 GROUPS_FILE1 = "groups1.json"
